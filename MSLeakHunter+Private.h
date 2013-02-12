@@ -18,6 +18,7 @@
  * @param objectReference should be a string that contains the class, the pointer, and a description of the object that leaked.
  */
 + (void)scheduleLeakNotificationWithObjectReferenceString:(NSString *)referenceString
+                                              weakPointer:(__weak NSObject *)weakObject
                                                afterDelay:(NSTimeInterval)delay;
 
 /**

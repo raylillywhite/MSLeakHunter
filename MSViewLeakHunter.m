@@ -16,8 +16,11 @@
 
 @interface UIView (MSViewLeakHunter)
 
-- (void)_msviewLeakHunter_didMoveToWindow;
+- (void)_msviewLeakHunter_didMoveToSuperview;
 - (void)_msviewLeakHunter_dealloc;
+- (BOOL)ms_isLeaked;
+@property (nonatomic, readonly) UIViewController *viewController;
+
 @end
 
 @implementation MSViewLeakHunter
@@ -26,9 +29,9 @@
 {
     Class class = [UIView class];
 
-    [MSLeakHunter swizzleMethod:@selector(didMoveToWindow)
+    [MSLeakHunter swizzleMethod:@selector(didMoveToSuperview)
                         ofClass:class
-                     withMethod:@selector(_msviewLeakHunter_didMoveToWindow)];
+                     withMethod:@selector(_msviewLeakHunter_didMoveToSuperview)];
 
     [MSLeakHunter swizzleMethod:NSSelectorFromString(@"dealloc")
                         ofClass:class
@@ -39,12 +42,14 @@
 
 @implementation UIView (MSViewLeakHunter)
 
+@dynamic viewController;
+
 /**
  * @return a string that identifies the controller. This is used to be pased to `MSVCLeakHunter` without retaining the controller.
  */
 - (NSString *)viewReferenceString
 {
-    return [NSString stringWithFormat:@"VIEW %@ <%p>", NSStringFromClass([self class]), self];
+    return [NSString stringWithFormat:@"VIEW:\n%@ <%p>", NSStringFromClass([self class]), self];
 }
 
 - (void)cancelLeakCheck
@@ -52,17 +57,21 @@
     [MSLeakHunter cancelLeakNotificationWithObjectReferenceString:[self viewReferenceString]];
 }
 
-- (void)_msviewLeakHunter_didMoveToWindow
+- (void)_msviewLeakHunter_didMoveToSuperview
 {
-    if (!self.window)
+    if (!self.superview)
     {
         [MSLeakHunter scheduleLeakNotificationWithObjectReferenceString:[self viewReferenceString]
+                                                            weakPointer:self
                                                              afterDelay:kMSViewLeakHunterDisappearAndDeallocateMaxInterval];
     }
     else
     {
         [self cancelLeakCheck];
     }
+    
+    // Call original implementation
+    [self _msviewLeakHunter_didMoveToSuperview];
 }
 
 - (void)_msviewLeakHunter_dealloc
@@ -72,6 +81,35 @@
     // Call original implementation
     [self _msviewLeakHunter_dealloc];
 
+}
+
+- (BOOL)ms_isLeaked
+{
+    if (!self.superview && !self.viewController)
+    {
+        return YES;
+    }
+    else
+    {
+        return NO;
+    }
+}
+
+- (NSString *)ms_additionalDescription
+{
+    if ([self respondsToSelector:@selector(recursiveDescription)])
+    {
+        return [self performSelector:@selector(recursiveDescription)];
+    }
+    return nil;
+}
+
+- (UIViewController *)viewController
+{
+    if ([self.nextResponder isKindOfClass:UIViewController.class])
+        return (UIViewController *)self.nextResponder;
+    else
+        return nil;
 }
 
 @end

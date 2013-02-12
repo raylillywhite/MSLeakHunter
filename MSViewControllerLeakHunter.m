@@ -54,7 +54,7 @@
  */
 - (NSString *)controllerReferenceString
 {
-    return [NSString stringWithFormat:@"VIEW CONTROLLER %@ <%p>", NSStringFromClass([self class]), self];
+    return [NSString stringWithFormat:@"VIEW CONTROLLER:\n%@ <%p>", NSStringFromClass([self class]), self];
 }
 
 - (void)cancelLeakCheck
@@ -65,6 +65,7 @@
 - (void)scheduleLeakCheck
 {
     [MSLeakHunter scheduleLeakNotificationWithObjectReferenceString:[self controllerReferenceString]
+                                                        weakPointer:self
                                                          afterDelay:kMSVCLeakHunterDisappearAndDeallocateMaxInterval];
 }
 
@@ -98,6 +99,19 @@
 
     // Call original implementation
     [self _msvcLeakHunter_dealloc];
+}
+
+- (BOOL)ms_isLeaked
+{
+    if (!self.parentViewController
+        && !self.tabBarController
+        && !self.navigationController
+        && !self.presentingViewController
+        && !self.splitViewController)
+    {
+        return YES;
+    }
+    return NO;
 }
 
 @end
